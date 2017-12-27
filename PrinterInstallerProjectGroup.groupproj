@@ -1,0 +1,36 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{84C8FFA5-93C8-4F57-8D06-887BE3F55033}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="PrinterInstaller.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="PrinterInstaller">
+        <MSBuild Projects="PrinterInstaller.dproj"/>
+    </Target>
+    <Target Name="PrinterInstaller:Clean">
+        <MSBuild Projects="PrinterInstaller.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="PrinterInstaller:Make">
+        <MSBuild Projects="PrinterInstaller.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="PrinterInstaller"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="PrinterInstaller:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="PrinterInstaller:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>
