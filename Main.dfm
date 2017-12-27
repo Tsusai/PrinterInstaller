@@ -3,8 +3,8 @@ object MainApp: TMainApp
   Top = 0
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
-  Caption = 'CBJSR Printer Installer'
-  ClientHeight = 185
+  Caption = 'Printer Installer'
+  ClientHeight = 178
   ClientWidth = 642
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
