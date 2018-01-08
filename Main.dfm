@@ -4,8 +4,8 @@ object MainApp: TMainApp
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
   Caption = 'Printer Installer'
-  ClientHeight = 178
-  ClientWidth = 642
+  ClientHeight = 220
+  ClientWidth = 635
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -56,8 +56,8 @@ object MainApp: TMainApp
     TabOrder = 1
   end
   object InstallBtn: TButton
-    Left = 549
-    Top = 142
+    Left = 550
+    Top = 187
     Width = 75
     Height = 25
     Caption = 'Install'
@@ -72,5 +72,18 @@ object MainApp: TMainApp
     ItemHeight = 13
     TabOrder = 3
     OnClick = PresetsBoxClick
+  end
+  object DuplexRadio: TRadioGroup
+    Left = 8
+    Top = 142
+    Width = 185
+    Height = 70
+    Caption = 'Duplex Settings'
+    ItemIndex = 0
+    Items.Strings = (
+      'Disable for All Users'
+      'Disable for Current User'
+      'Leave Default Settings')
+    TabOrder = 4
   end
 end

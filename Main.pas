@@ -4,7 +4,8 @@ interface
 
 uses
 	Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-	Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.CheckLst, Vcl.ComCtrls;
+	Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, Vcl.CheckLst, Vcl.ComCtrls,
+  Vcl.ExtCtrls;
 
 type
 	TMainApp = class(TForm)
@@ -15,6 +16,7 @@ type
 		DefaultLbl: TLabel;
 		PresetsLbl: TLabel;
 		PresetsBox: TListBox;
+		DuplexRadio: TRadioGroup;
 		procedure FormCreate(Sender: TObject);
 		procedure FormDestroy(Sender: TObject);
 		procedure InstallBtnClick(Sender: TObject);
@@ -69,8 +71,10 @@ begin
 end;
 
 var
-	PrinterDir : string;// = '\\hal\Users\Sharenapps\IT\Drivers\Printers';
+	PrinterDir : string;// = '\\server\path\path\path\Printers';
 	DriverTMP : string;// = 'C:\PDRIVERS';
+	PausePhase : boolean;
+	TestMode : boolean;
 
 type
 	TPrinter = class(TObject)
@@ -98,21 +102,30 @@ begin
 	//Set to the center of the screen on startup
 	Left:=(Screen.Width-Width)  div 2;
 	Top:=(Screen.Height-Height) div 2;
-	//Load Printers
-	Ini := TMemIniFile.Create('Printers.ini');
-	(*
-	[Settings]
-	RootFolder=\\server\Users\Sharenapps\IT\Drivers\Printers
-	TempFolder=C:\PDRIVERS
 
+	(*Load Settings
+	[Settings]
+	RootFolder=\\server\path\path\path\Printers
+	TempFolder=C:\PDRIVERS
+	Pause=True
+	TestMode=False
+	*)
+	Ini := TMemIniFile.Create('Settings.ini');
+	PrinterDir := Ini.ReadString('Settings','RootFolder',ExtractFilePath(ParamStr(0)));
+	DriverTMP := Ini.ReadString('Settings','TempFolder','C:\PDRIVERS');
+	PausePhase := Ini.ReadBool('Settings','Pause',true);
+	TestMode := Ini.ReadBool('Settings','TestMode',false);
+	Ini.Free;
+
+	(*Load Printers
 	[Boss Workroom]                                  (Name of the Printer in the GUI)
 	Name=Workroom (Color)                            (Installed Name of the Printer)
 	IP=192.168.1.16                                  (IP Address of Printer)
 	DriverName=Kyocera Classic Universaldriver PCL6  (Driver Name in INI File)
 	DriverDir=Kx630909_UPD_en\64bit\XP and newer     (Path to Driver)
-	INF=OEMSETUP.INF                                 (Optional, assumes OEMSETUP.INF)
-
+	INF=OEMSETUP.INF                                 (Optional, already assumes OEMSETUP.INF)
 	*)
+	Ini := TMemIniFile.Create('Printers.ini');
 	Sections := TStringlist.Create;
 	Ini.ReadSections(Sections);
 	if Sections.Count > 0 then
@@ -120,35 +133,25 @@ begin
 		//Loop through INI Sections
 		for sidx := 0 to Sections.Count-1 do
 		begin
-			//Grab Settings
-			if Sections[sidx] = 'Settings' then
-			begin
-				PrinterDir := Ini.ReadString('Settings','RootFolder',ExtractFilePath(ParamStr(0)));
-				DriverTMP := Ini.ReadString('Settings','TempFolder','C:\PDRIVERS');
-			end else
-			//Grab Printer Info, Store in TObject to store into CheckListBox
-			//Box "owns" object, freed on Application Destruction
-			begin
-				APrinter := TPrinter.Create;
-				APrinter.Name :=Ini.ReadString(Sections[sidx],'Name','');
-				APrinter.IP   :=Ini.ReadString(Sections[sidx],'IP','');
-				APrinter.DrvN :=Ini.ReadString(Sections[sidx],'DriverName','');
-				APrinter.DrvD :=Ini.ReadString(Sections[sidx],'DriverDir','');
-				APrinter.InfF :=Ini.ReadString(Sections[sidx],'INF','oemsetup.inf');
-				PrinterCheckBox.Items.AddObject(Sections[sidx],APrinter);
-			end;
+		//Grab Printer Info, Store in TObject to store into CheckListBox
+		//Box "owns" object, freed on Application Destruction
+			APrinter := TPrinter.Create;
+			APrinter.Name :=Ini.ReadString(Sections[sidx],'Name','');
+			APrinter.IP   :=Ini.ReadString(Sections[sidx],'IP','');
+			APrinter.DrvN :=Ini.ReadString(Sections[sidx],'DriverName','');
+			APrinter.DrvD :=Ini.ReadString(Sections[sidx],'DriverDir','');
+			APrinter.InfF :=Ini.ReadString(Sections[sidx],'INF','oemsetup.inf');
+			PrinterCheckBox.Items.AddObject(Sections[sidx],APrinter);
 		end;
 	end;
 	//Free Data
 	Ini.Free;
 	Sections.Free;
 
-	//Load Presets!
-	(*
+	(*Load Presets!
 	[Group Name ]                              (Name of the Group/Preset)
 	Printers="Printer A","Printer B"           (Use the names of [Printers] from Printers.ini)
 	*)
-
 	Ini := TMemIniFile.Create('Presets.ini');
 	Sections := TStringlist.Create;
 	Ini.ReadSections(Sections);
@@ -185,8 +188,17 @@ end;
 //Application Shutdown
 procedure TMainApp.FormDestroy(Sender: TObject);
 var
+	ini : TMemIniFile;
 	idx : integer;
 begin
+	Ini := TMemIniFile.Create('Settings.ini');
+	Ini.WriteString('Settings','RootFolder',PrinterDir);
+	Ini.WriteString('Settings','TempFolder',DriverTMP);
+	Ini.WriteBool('Settings','Pause',PausePhase);
+	Ini.WriteBool('Settings','TestMode',TestMode);
+	Ini.UpdateFile;
+	Ini.Free;
+
 	for idx := PrinterCheckBox.Items.Count-1 downto 0 do PrinterCheckBox.Items.Objects[idx].Free;
 	for idx := PresetsBox.Items.Count-1 downto 0 do PresetsBox.Items.Objects[idx].Free;
 end;
@@ -231,51 +243,125 @@ var
 	pidx : integer;
 	CMD : string;
 	APrinter : TPrinter;
+	Phase1, Phase2, Phase3 : TStringList;
+	TestDump : TStringList;
+	AFolder : string;
 begin
-	for pidx := 0 to PrinterCheckBox.Count-1 do
-	begin
-		if TDirectory.Exists(DriverTMP) then TDirectory.Delete(DriverTMP, true);
-		if PrinterCheckBox.Checked[pidx] then
+	InstallBtn.Enabled := false;
+	Phase1 := TStringList.Create;
+	Phase2 := TStringList.Create;
+	Phase3 := TStringList.Create;
+	TestDump := TStringList.Create;
+	try
+		TestDump.Clear;
+
+		Phase1.Clear;
+		Phase2.Clear;
+		Phase3.Clear;
+
+		//Phase 1, Copy files, remove old printer userlevel
+		//Phase 2, remove printer admin level, install driver admin level
+		//Phase 3, userlevel cleanup and tweaks
+		for pidx := 0 to PrinterCheckBox.Count-1 do
 		begin
-			APrinter := PrinterCheckBox.Items.Objects[pidx] as TPrinter;
-			if CreateDir(DriverTMP) then
+			AFolder := DriverTMP+'\'+IntToStr(pidx)+'\';
+			if TDirectory.Exists(AFolder) then TDirectory.Delete(AFolder, true);
+			if PrinterCheckBox.Checked[pidx] then
 			begin
-				CMD := Format('"%s\%s" %s/I /y /D /E',[PrinterDir,APrinter.DrvD,DriverTMP]);
-				RunAndWait(0,'xcopy',CMD);
-				//this is basically a batch file being sent as a string, the ending " & " means new command
-				//Line 1: Removes existing Printer
-				//Line 2: Install TCP/IP Printer Port
-				//Line 3: Install x64 Driver
-				//Line 4: Combine Printer Port and Driver as a Printer
-				CMD := Format(
-					'/c cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prnmngr.vbs -d -p "%s" & '+
-					'cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prnport.vbs -a -r IP_%s -h %s -o raw -n 9100 -me -i 1 -y public & '+
-					'cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prndrvr.vbs -a -m "%s" -v 3 -e "Windows x64" -i %s\%s -h %s & '+
-					'cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prnmngr.vbs -a -p "%s" -m "%s" -r IP_%s',
-					[
-						APrinter.Name,
-						APrinter.IP,APrinter.IP,
-						APrinter.DrvN,DriverTMP,APrinter.InfF,DriverTMP,
-						APrinter.Name,APrinter.DrvN,APrinter.IP
-					]
+				APrinter := PrinterCheckBox.Items.Objects[pidx] as TPrinter;
+				TDirectory.CreateDirectory(AFolder);
+				//Copy Files User Level
+				Phase1.Add(
+					Format('xcopy "%s\%s" %s /I /y /D /E',[PrinterDir,APrinter.DrvD,AFolder])
 				);
-				//Execute
-				RunAndWait(0,'cmd.exe',CMD,true);
-				if TDirectory.Exists(DriverTMP) then TDirectory.Delete(DriverTMP, true);
-			end else ShowMessage('Failed to create temp folder.');
+				//Remove Printer User Level
+				Phase1.Add(
+					Format('cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prnmngr.vbs -d -p "%s"',[APrinter.Name])
+				);
+				//Add Printer Port
+				Phase1.Add(
+					Format('cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prnport.vbs -a -r IP_%s -h %s -o raw -n 9100 -me -i 1 -y public',[APrinter.IP,APrinter.IP])
+				);
+				//Remove Printer Admin Level
+				Phase2.Add(
+					Format('cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prnmngr.vbs -d -p "%s"',[APrinter.Name])
+				);
+				//Add Printer Driver Admin Level
+				Phase2.Add(
+					Format('cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prndrvr.vbs -a -m "%s" -v 3 -e "Windows x64" -i %s\%s -h %s',[APrinter.DrvN,AFolder,APrinter.InfF,AFolder])
+				);
+				//Add Printer User Level
+				Phase3.Add(
+					Format('cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prnmngr.vbs -a -p "%s" -m "%s" -r IP_%s',[APrinter.Name,APrinter.DrvN,APrinter.IP])
+				);
+			end;
 		end;
+
+		if Phase1.Count > 0 then
+		begin
+			//Prepare CMD string to run Phase 1
+			CMD := '/c ';
+			for pidx := 0 to Phase1.Count-1 do
+			begin
+				CMD := CMD + Phase1.Strings[pidx];
+				if pidx <> (Phase1.Count-1) then CMD := CMD + ' & ';
+			end;
+			if PausePhase then CMD := CMD+ ' & pause';
+			if Not TestMode then RunAndWait(Self.Handle,'cmd',CMD) else TestDump.Add('Phase 1: ' + CMD);
+			//End of Phase1
+
+			//Phase 2
+			//Clear all Print Jobs, add to top of list
+			Phase2.Insert(0,'cscript %WINDIR%\System32\Printing_Admin_Scripts\en-US\prnqctl.vbs -x');
+			CMD := '/c ';
+			for pidx := 0 to Phase2.Count-1 do
+			begin
+				CMD := CMD + Phase2.Strings[pidx];
+				if pidx <> (Phase2.Count-1) then CMD := CMD + ' & ';
+			end;
+			if PausePhase then CMD := CMD+ ' & pause';
+			if Not TestMode then RunAndWait(Self.Handle,'cmd',CMD) else TestDump.Add('Phase 2: ' + CMD);
+			//End of Phase 2
+
+			//Phase 3
+			CMD := '/c ';
+			for pidx := 0 to Phase3.Count-1 do
+			begin
+				CMD := CMD + Phase3.Strings[pidx];
+				if pidx <> (Phase3.Count-1) then CMD := CMD + ' & ';
+			end;
+			//Disable Duplex?
+			if FileExists(GetCurrentDir+'\Tools\setprinter.exe') then
+			begin
+				case DuplexRadio.ItemIndex of
+				0: CMD := CMD + ' & ' + GetCurrentDir+'\Tools\setprinter.exe "" 8 "pDevMode=dmDuplex=1"'; //8 = All Users
+				1: CMD := CMD + ' & ' + GetCurrentDir+'\Tools\setprinter.exe "" 2 "pDevMode=dmDuplex=1"'; //2 = Current User
+				end;
+			end;
+			//Set Default Printer
+			if Defaultbox.ItemIndex <> -1 then
+			begin
+				CMD := CMD + ' & ' +
+					Format(
+						'cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prnmngr.vbs -p "%s" -t',
+						[Defaultbox.Items.Strings[Defaultbox.ItemIndex]]
+					);
+			end;
+			if PausePhase then CMD := CMD+ ' & pause';
+			if Not TestMode then RunAndWait(Self.Handle,'cmd',CMD) else TestDump.Add('Phase 3: ' + CMD);
+			//End of Phase 3
+
+			if TestMode then TestDump.SaveToFile('Test Mode Dump.txt');
+			if Assigned(TestDump) then TestDump.Free;
+		end;
+	finally
+		if TDirectory.Exists(DriverTMP) then TDirectory.Delete(DriverTMP, true);
+		ShowMessage('Done');
+		Phase1.Free;
+		Phase2.Free;
+		Phase3.Free;
+		InstallBtn.Enabled := true;
 	end;
-
-	//Set Default Printer
-	CMD:= Format(
-		'/c cscript %%WINDIR%%\System32\Printing_Admin_Scripts\en-US\Prnmngr.vbs -p "%s" -t',
-		[Defaultbox.Items.Strings[Defaultbox.ItemIndex]]
-	);
-	//Execute
-	RunAndWait(0,'cmd.exe',CMD,true);
-
-	if TDirectory.Exists(DriverTMP) then TDirectory.Delete(DriverTMP, true);
-	ShowMessage('Done');
 end;
 
 end.
