@@ -1,3 +1,6 @@
+(*
+2019-2020 "Tsusai": Printer Installer: Uses windows scripts to deploy multiple printers.
+*)
 unit Main;
 
 interface
@@ -320,7 +323,7 @@ begin
 				if pidx <> (Phase2.Count-1) then CMD := CMD + ' & ';
 			end;
 			if PausePhase then CMD := CMD+ ' & pause';
-			if Not TestMode then RunAndWait(Self.Handle,'cmd',CMD) else TestDump.Add('Phase 2: ' + CMD);
+			if Not TestMode then RunAndWait(Self.Handle,'cmd',CMD,true) else TestDump.Add('Phase 2: ' + CMD);
 			//End of Phase 2
 
 			//Phase 3
